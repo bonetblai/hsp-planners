@@ -1672,6 +1672,7 @@ removeNodeFromOPEN( register node_t *node )
   register int bucket;
 
   bucket = node->bucket;
+  assert( nodesInOPEN > 0 );
   --nodesInOPEN;
 
   /* link update */
@@ -1885,6 +1886,7 @@ insertNodeIntoBucket( register node_t *node, register int bucket )
   }
 
   /* insert node before n */
+  ++nodesInOPEN;
   node->bucket = bucket;
   node->bucketNext = n;
   node->bucketPrev = NULL;
@@ -1933,7 +1935,7 @@ nodeOrdering( register node_t **buffer, register int size )
   if( needRethreading == 1 )
     {
       int lowerLimit = minBucket == INT_MIN ? 0 : minBucket;
-      int upperLimit = maxBucket == INT_MAX ? bucketTableSize : maxBucket;
+      int upperLimit = maxBucket == INT_MAX ? bucketTableSize : 1 + maxBucket;
       minBucket = INT_MAX;
       maxBucket = INT_MIN;
       for( bucket = lowerLimit, lastNodeInPrevBucket = NULL; bucket < upperLimit; ++bucket )
@@ -1953,8 +1955,8 @@ nodeOrdering( register node_t **buffer, register int size )
     }
 
   /* compute new openList head and tail */
-  headOPEN = firstNodeInBucket[minBucket];
-  tailOPEN = lastNodeInBucket[maxBucket];
+  headOPEN = minBucket == INT_MAX ? 0 : firstNodeInBucket[minBucket];
+  tailOPEN = maxBucket == INT_MIN ? 0 : lastNodeInBucket[maxBucket];
   assert( (nodesInOPEN == 0) || (headOPEN != NULL) );
 }
 
@@ -2077,6 +2079,7 @@ forwardNodeExpansion( register node_t *node, register node_t ***result )
 		  removeNodeFromHash( tmp );
 		  if( tmp->open == 1 )
 		    {
+                      assert( nodesInOPEN > 0 );
 		      removeNodeFromOPEN( tmp );
 		    }
 		}
@@ -2227,7 +2230,10 @@ backwardNodeExpansion( register node_t *node, register node_t ***result )
 		    /* remove old node from hash and open list */
 		    removeNodeFromHash( tmp );
 		    if( tmp->open == 1 )
-		      removeNodeFromOPEN( tmp );
+                      {
+                        assert( nodesInOPEN > 0 );
+                        removeNodeFromOPEN( tmp );
+                      }
 		  }
 
 		/* set node data */
@@ -3710,6 +3716,7 @@ BFS( schedule_t *schedule )
 	  return( buffer[i] );
 
       /* delete currentNode from OPEN */
+      assert( nodesInOPEN > 0 );
       removeNodeFromOPEN( currentNode );
 
       /* insert children into OPEN */
@@ -3799,8 +3806,10 @@ GBFS( schedule_t *schedule )
     memoryConstraint = -1;
 
   /* loop */
+  assert( nodesInOPEN > 0 );
   while( currentNode != NULL )
     {
+      assert( nodesInOPEN > 0 );
       /* check constraints */
       if( timeExpired || memoryExpired )
 	{
@@ -3822,6 +3831,7 @@ GBFS( schedule_t *schedule )
 	{
 	  printNode( stderr, "CURRENT NODE", currentNode );
 	  fprintf( stderr, "number children = %d\n", children );
+          assert( nodesInOPEN > 0 );
 	}
 
       /* print child */
@@ -3836,10 +3846,13 @@ GBFS( schedule_t *schedule )
 	  return( buffer[i] );
 
       /* delete currentNode from OPEN */
+      assert( nodesInOPEN > 0 );
       removeNodeFromOPEN( currentNode );
+      assert( nodesInOPEN >= 0 );
 
       /* insert children into OPEN */
       nodeOrdering( buffer, children );
+      assert( nodesInOPEN > 0 );
 
       /* next node: first try a probe */
       nextNode = NULL;
@@ -3860,6 +3873,7 @@ GBFS( schedule_t *schedule )
 	currentNode = getFirstOPEN();
       else
 	currentNode = nextNode;
+      assert( currentNode->open == 1 );
     }
   return( NULL );
 }
