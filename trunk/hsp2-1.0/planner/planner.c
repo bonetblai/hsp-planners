@@ -205,6 +205,9 @@ static node_t **    lastNodeInBucket = NULL;
 static int          bucketTableSize = 0;
 static int          minBucket;
 static int          maxBucket;
+static int          nodesInOPEN = 0;
+static int          nodesInCLOSE = 0;
+static int          needRethreading = 0;
 
 /* true initial state */
 static atom_t       staticInitialState[MAXATOMPACKS];
@@ -1652,6 +1655,7 @@ setInitialOPEN( register node_t *node )
   lastNodeInBucket[bucket] = node;
   headOPEN = node;
   tailOPEN = node;
+  ++nodesInOPEN;
 }
 
 
@@ -1668,6 +1672,7 @@ removeNodeFromOPEN( register node_t *node )
   register int bucket;
 
   bucket = node->bucket;
+  --nodesInOPEN;
 
   /* link update */
   if( node->bucketPrev != NULL )
@@ -1679,15 +1684,21 @@ removeNodeFromOPEN( register node_t *node )
   if( node == firstNodeInBucket[bucket] )
     {
       if( lastNodeInBucket[bucket] != node )
-	firstNodeInBucket[bucket] = node->bucketNext;
+        {
+          assert( node->bucketNext != NULL );
+          assert( lastNodeInBucket[bucket] != NULL );
+	  firstNodeInBucket[bucket] = node->bucketNext;
+        }
       else
 	{
 	  firstNodeInBucket[bucket] = NULL;
 	  lastNodeInBucket[bucket] = NULL;
+          needRethreading = 1;
 	}
     }
   else if( node == lastNodeInBucket[bucket] )
     {
+      assert( node->bucketPrev != NULL );
       lastNodeInBucket[bucket] = node->bucketPrev;
     }
 
@@ -1696,22 +1707,32 @@ removeNodeFromOPEN( register node_t *node )
     {
       headOPEN = node->bucketNext;
       if( headOPEN != NULL )
-	minBucket = headOPEN->bucket;
+	{
+	  minBucket = headOPEN->bucket;
+	}
       else
 	{
-	  minBucket = bucketTableSize;
-	  maxBucket = 0;
+	  //minBucket = bucketTableSize;
+	  //maxBucket = 0;
+          minBucket = INT_MIN;
+          maxBucket = INT_MAX;
+          assert( needRethreading == 1 );
 	}
     }
   if( node == tailOPEN )
     {
       tailOPEN = node->bucketPrev;
       if( tailOPEN != NULL )
-	maxBucket = tailOPEN->bucket;
+	{
+	  maxBucket = tailOPEN->bucket;
+	}
       else
 	{
-	  minBucket = bucketTableSize;
-	  maxBucket = 0;
+	  //minBucket = bucketTableSize;
+	  //maxBucket = 0;
+          minBucket = INT_MIN;
+          maxBucket = INT_MAX;
+          assert( needRethreading == 1 );
 	}
     }
 
@@ -1721,9 +1742,11 @@ removeNodeFromOPEN( register node_t *node )
   if( CLOSE != NULL )
     CLOSE->bucketPrev = node;
   CLOSE = node;
+  ++nodesInCLOSE;
 }
 
 
+#if 0
 node_t *
 removeLastFromOPEN( register node_t *father )
 {
@@ -1755,6 +1778,7 @@ removeLastFromOPEN( register node_t *father )
     }
   else if( node == lastNodeInBucket[bucket] )
     {
+      assert( node->bucketPrev != NULL );
       lastNodeInBucket[bucket] = node->bucketPrev;
     }
 
@@ -1766,8 +1790,9 @@ removeLastFromOPEN( register node_t *father )
 	minBucket = headOPEN->bucket;
       else
 	{
-	  minBucket = bucketTableSize;
-	  maxBucket = 0;
+	  //minBucket = bucketTableSize;
+	  //maxBucket = 0;
+          assert( 0 );
 	}
     }
   if( node == tailOPEN )
@@ -1777,8 +1802,9 @@ removeLastFromOPEN( register node_t *father )
 	maxBucket = tailOPEN->bucket;
       else
 	{
-	  minBucket = bucketTableSize;
-	  maxBucket = 0;
+	  //minBucket = bucketTableSize;
+	  //maxBucket = 0;
+          assert( 0 );
 	}
     }
 
@@ -1788,6 +1814,7 @@ removeLastFromOPEN( register node_t *father )
   /* return */
   return( node );
 }
+#endif
 
 
 node_t *
@@ -1795,6 +1822,7 @@ removeNodeFromCLOSE( void )
 {
   register node_t *node;
 
+  --nodesInCLOSE;
   node = CLOSE;
 
   /* CLOSE update */
@@ -1847,6 +1875,15 @@ insertNodeIntoBucket( register node_t *node, register int bucket )
 	((searchHeuristic == H2MAX) && (node->h1_plus <= n->h1_plus)) )
       break;
 
+  /* check if rethreading is needed */
+  if( firstNodeInBucket[bucket] == NULL ) {
+    needRethreading = 1;
+    if( (bucket < minBucket) || (bucket > maxBucket) ) {
+      minBucket = INT_MIN;
+      maxBucket = INT_MAX;
+    }
+  }
+
   /* insert node before n */
   node->bucket = bucket;
   node->bucketNext = n;
@@ -1882,8 +1919,8 @@ nodeOrdering( register node_t **buffer, register int size )
       {
 	/* registry used buckets */
 	bucket = nodeBucket( buffer[i] );
-	minBucket = MIN( minBucket, bucket );
-	maxBucket = MAX( maxBucket, bucket );
+	if( minBucket != -1 ) minBucket = MIN( minBucket, bucket );
+	if( maxBucket != -1 ) maxBucket = MAX( maxBucket, bucket );
 	insertNodeIntoBucket( buffer[i], bucket );
       }
     else
@@ -1893,26 +1930,32 @@ nodeOrdering( register node_t **buffer, register int size )
       }
 
   /* bucket threading */
-  if( minBucket != bucketTableSize )
+  if( needRethreading == 1 )
     {
-      if( firstNodeInBucket[minBucket] != NULL )
-	{
-	  for( bucket = minBucket, lastNodeInPrevBucket = NULL; bucket <= maxBucket; ++bucket )
-	    if( firstNodeInBucket[bucket] != NULL )
-	      {
-		if( lastNodeInPrevBucket != NULL )
-		  {
-		    lastNodeInPrevBucket->bucketNext = firstNodeInBucket[bucket];
-		    firstNodeInBucket[bucket]->bucketPrev = lastNodeInPrevBucket;
-		  }
-		lastNodeInPrevBucket = lastNodeInBucket[bucket];
-	      }
-	}
-
-      /* compute new openList head and tail */
-      headOPEN = firstNodeInBucket[minBucket];
-      tailOPEN = lastNodeInBucket[maxBucket];
+      int lowerLimit = minBucket == INT_MIN ? 0 : minBucket;
+      int upperLimit = maxBucket == INT_MAX ? bucketTableSize : maxBucket;
+      minBucket = INT_MAX;
+      maxBucket = INT_MIN;
+      for( bucket = lowerLimit, lastNodeInPrevBucket = NULL; bucket < upperLimit; ++bucket )
+        {
+          if( firstNodeInBucket[bucket] != NULL )
+            {
+              if( lastNodeInPrevBucket != NULL )
+                {
+                  lastNodeInPrevBucket->bucketNext = firstNodeInBucket[bucket];
+                  firstNodeInBucket[bucket]->bucketPrev = lastNodeInPrevBucket;
+                }
+              lastNodeInPrevBucket = lastNodeInBucket[bucket];
+              minBucket = bucket < minBucket ? bucket : minBucket;
+              maxBucket = bucket > maxBucket ? bucket : maxBucket;
+            }
+        }
     }
+
+  /* compute new openList head and tail */
+  headOPEN = firstNodeInBucket[minBucket];
+  tailOPEN = lastNodeInBucket[maxBucket];
+  assert( (nodesInOPEN == 0) || (headOPEN != NULL) );
 }
 
 
