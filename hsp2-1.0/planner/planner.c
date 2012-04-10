@@ -188,13 +188,13 @@ static int *        HSubTableSize;
 
 /* for node pool management */
 static int          pageSize;
-static node_t *     nodePool = NULL;
+static char *       nodePool = NULL;
 static int          currentNodePool = -1;
 static int          nodePoolClaimSize = 0;
 static int *        nodePoolSize;
 static char *       nodePoolUsed;
 static int          nodePoolTableSize = 0;
-static node_t **    nodePoolTable;
+static char **      nodePoolTable;
 
 /* for Best-First Search */
 static node_t *     headOPEN = NULL;
@@ -1415,7 +1415,7 @@ getNode( void )
 {
   register int oldSize;
   register node_t *result;
-  register node_t **newNodePoolTable;
+  register char **newNodePoolTable;
   register int *newNodePoolSize;
   register char *newNodePoolUsed;
 
@@ -1424,7 +1424,7 @@ getNode( void )
     {
       oldSize = nodePoolTableSize;
       nodePoolTableSize = (nodePoolTableSize == 0 ? 1024 : INCRATE * nodePoolTableSize);
-      newNodePoolTable = (node_t**)realloc( nodePoolTable, nodePoolTableSize * sizeof( node_t* ) );
+      newNodePoolTable = (char**)realloc( nodePoolTable, nodePoolTableSize * sizeof( char* ) );
       newNodePoolSize = (int*)realloc( nodePoolSize, nodePoolTableSize * sizeof( int ) );
       newNodePoolUsed = (char*)realloc( nodePoolUsed, nodePoolTableSize * sizeof( char ) );
       if( !newNodePoolTable || !newNodePoolSize || !newNodePoolUsed )
@@ -1439,8 +1439,7 @@ getNode( void )
 
   /* check if we have enough space in pool area */
   if( (nodePool == NULL) || 
-      ((char *)nodePool ==
-       (char *)((unsigned)nodePoolTable[currentNodePool] + nodePoolSize[currentNodePool])) )
+      (nodePool == nodePoolTable[currentNodePool] + nodePoolSize[currentNodePool]) )
     {
       /* get new pool area */
       ++currentNodePool;
@@ -1451,7 +1450,7 @@ getNode( void )
 	  fprintf( stderr, "HEAPMGMT: allocating memory for %d nodes (%d bytes)... ", 
 		   nodePoolClaimSize, nodePoolSize[currentNodePool] );
 	  fflush( stderr );
-	  nodePoolTable[currentNodePool] = (node_t*)malloc( nodePoolSize[currentNodePool] );
+	  nodePoolTable[currentNodePool] = (char*)malloc( nodePoolSize[currentNodePool] );
 	  if( !nodePoolTable[currentNodePool] )
 	    fatal( noMoreMemory );
 	  else
@@ -1464,9 +1463,9 @@ getNode( void )
     }
 
   /* claim node from current pool */
-  result = nodePool;
-  result->state = (atom_t*) ((unsigned)&result->state + sizeof( node_t* ));
-  nodePool = (node_t*) ((unsigned)nodePool + NODESIZE);
+  result = (node_t*) nodePool;
+  result->state = (atom_t*) ((char*)result + sizeof( node_t ));
+  nodePool += NODESIZE;
 
   /* update memory usage & check constraint */
   nodeMemoryUsed += NODESIZE;
@@ -1481,7 +1480,7 @@ getNode( void )
 void
 freeLastNodes( register int number )
 {
-  nodePool = (node_t *) ((unsigned)nodePool - (number * NODESIZE));
+  nodePool -= number * NODESIZE;
 }
 
 
