@@ -1,9 +1,12 @@
 CC	= gcc
 C++	= g++
+LD	= $(CC)
 YACC	= bison
 FLEX	= flex
-CFLAGS	= -Wall -O3 -DCOMPETITION_OUTPUT
+ARCH	= #-m64
+CFLAGS	= $(ARCH) -Wall -O3 -DCOMPETITION_OUTPUT
 #CFLAGS	= -Wall -g -DCOMPETITION_OUTPUT
+LDFLAGS	= $(ARCH)
 
 
 compile:
@@ -11,7 +14,7 @@ compile:
 			@make hsp2
 
 hsp2:			planner.o parser.o pddl.o
-			$(CC) -o hsp2 planner.o parser.o pddl.o
+			$(LD) $(LDFLAGS) -o hsp2 planner.o parser.o pddl.o
 
 planner.o:		planner.c parser.h planner.h
 			$(CC) $(CFLAGS) -c planner.c
