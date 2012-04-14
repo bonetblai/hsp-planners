@@ -1646,6 +1646,9 @@ setInitialOPEN( register node_t *node )
   register int bucket;
 
   bucket = nodeBucket( node );
+  if( bucket >= bucketTableSize )
+    resizeBucketTable(bucket);
+
   minBucket = maxBucket = bucket;
   node->bucket = bucket;
   node->bucketNext = NULL;
@@ -1844,18 +1847,21 @@ resizeBucketTable( register int min_size )
   node_t **new_table = 0;
   int new_size = bucketTableSize == 0 ? MINBUCKETTABLESIZE : bucketTableSize<<1;
   while( min_size >= new_size ) new_size = new_size<<1;
+
   new_table = (node_t**)malloc(new_size*sizeof(node_t*));
   if( !new_table ) fatal(noMoreMemory);
   memset(new_table,0,new_size*sizeof(node_t*));
   memcpy(new_table,firstNodeInBucket,bucketTableSize*sizeof(node_t*));
   free(firstNodeInBucket);
   firstNodeInBucket = new_table;
+
   new_table = (node_t**)malloc(new_size*sizeof(node_t*));
   if( !new_table ) fatal(noMoreMemory);
   memset(new_table,0,new_size*sizeof(node_t*));
   memcpy(new_table,lastNodeInBucket,bucketTableSize*sizeof(node_t*));
   free(lastNodeInBucket);
   lastNodeInBucket = new_table;
+
   bucketTableSize = new_size;
   fprintf( stderr, "GENERAL: new number of buckets = %d\n", bucketTableSize );
 }
@@ -2073,6 +2079,8 @@ forwardNodeExpansion( register node_t *node, register node_t ***result )
 		  buffer[child]->valid = 1;
 		  buffer[child]->h1_plus = tmp->h1_plus;
 		  buffer[child]->h1_max = tmp->h1_max;
+		  buffer[child]->h2_plus = tmp->h2_plus;
+		  buffer[child]->h2_max = tmp->h2_max;
 
 		  /* remove old node from hash and open list */
 		  removeNodeFromHash( tmp );
