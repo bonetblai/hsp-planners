@@ -268,6 +268,7 @@ void                newMutexSet( register int );
 
 void                identifyGoalParents( register int * );
 void                printNode( register FILE *, register char *, register node_t * );
+void                resizeBucketTable( register int min_size );
 void                removeNodeFromOPEN( register node_t * );
 node_t *            removeLastFromOPEN( register node_t * );
 node_t *            removeNodeFromCLOSE( void  );
