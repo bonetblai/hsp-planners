@@ -674,6 +674,11 @@ one_effect_formula
                        {
 			 $$ = $3;
 		       }
+                  |  LEFTPAR AND RIGHTPAR
+                       {
+                         //printf("EMPTY EFFECT\n");
+			 $$ = NULL;
+		       }
                   |  LEFTPAR WHEN formula list_atomic_effect RIGHTPAR
                        {
 			 formula_t *formula, *next;
@@ -781,6 +786,11 @@ list_atomic_effect
                   |  LEFTPAR AND list_literal RIGHTPAR
                        {
 			 $$ = $3;
+		       }
+                  |  LEFTPAR AND RIGHTPAR
+                       {
+                         //printf("EMPTY EFFECT\n");
+			 $$ = NULL;
 		       }
                   ;
 
