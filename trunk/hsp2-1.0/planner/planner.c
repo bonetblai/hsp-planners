@@ -2390,7 +2390,7 @@ operatorCompilation( void )
   printf( "OPERATOR: number of static atoms = %d\n", numberStaticAtoms );
   if( staticCompilation == 1 ) {
     int first_static, last_non_static;
-    int permutation[ATOMSPERPACK*MAXATOMPACKS];
+    static int permutation[ATOMSPERPACK*MAXATOMPACKS];
     for( i = 0; i < ATOMSPERPACK*MAXATOMPACKS; ++i )
       permutation[i] = i;
 
