@@ -46,7 +46,7 @@
 
 #define MAXPARAMETERS        20
 #define ATOMSPERPACK         (8*sizeof( unsigned ))
-#define MAXATOMPACKS         4096            /* enough for 4096 * 32 = 131072 atoms */
+#define MAXATOMPACKS         (1<<16)         /* enough for 4096 * 32 = 131072 atoms */
 #define MAXSCHEMA            100000
 
 #define MINBUCKETTABLESIZE   2048
